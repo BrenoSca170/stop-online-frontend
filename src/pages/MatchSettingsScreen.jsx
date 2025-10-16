@@ -1,41 +1,41 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Hook para navegação
+import { useNavigate } from 'react-router-dom';
 
 function MatchSettingsScreen() {
-  const navigate = useNavigate(); // Inicializa o hook de navegação
+  const navigate = useNavigate();
 
   // --- ESTADOS DO COMPONENTE ---
-  // Lista de todas as categorias disponíveis que vêm do BD
   const [allCategories, setAllCategories] = useState([]);
-  // Lista das categorias que o usuário selecionou
   const [selectedCategories, setSelectedCategories] = useState([]);
-  // Tempo da rodada escolhido pelo usuário
   const [roundTime, setRoundTime] = useState(60);
-  // Estados de feedback visual
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
 
   // ==================================================================
-  // EFEITO PARA CARREGAR DADOS INICIAIS (API GET)
+  // EFEITO PARA CARREGAR DADOS INICIAIS DO SUPABASE (GET)
   // ==================================================================
   useEffect(() => {
     const fetchSettings = async () => {
       setLoading(true);
       setMessage('Carregando configurações...');
       try {
-        // --- PONTO DE INTEGRAÇÃO COM A API (GET) ---
-        // 1. Simular busca de TODAS as categorias disponíveis no MongoDB
-        // URL futura: /api/categories
-        const allCategoriesFromMongo = [
-          'Nome', 'CEP', 'Animal', 'Cor', 'País', 'Fruta', 'Profissão', 'Objeto'
-        ];
-        setAllCategories(allCategoriesFromMongo);
+        // --- PONTO DE INTEGRAÇÃO REAL COM SUPABASE ---
+        // 1. Buscar TODAS as categorias disponíveis da tabela 'tema'
+        const { data: temas, error: temasError } = await supabase
+          .from('tema')
+          .select('tema_nome');
 
-        // 2. Simular busca das PREFERÊNCIAS SALVAS do usuário
-        // URL futura: /api/users/me/settings
+        if (temasError) throw temasError;
+
+        // Extrai apenas os nomes dos temas do array de objetos
+        const categoryNames = temas.map(tema => tema.tema_nome);
+        setAllCategories(categoryNames);
+
+        // 2. Simular busca das PREFERÊNCIAS SALVAS do usuário (LÓGICA FUTURA)
+        // QUANDO a tabela de preferências existir, você fará uma busca aqui.
+        // Por enquanto, vamos pré-selecionar os 4 primeiros temas da lista.
         const userPreferencesFromMongo = {
-          selected: ['Nome', 'CEP', 'Animal', 'Cor'],
+          selected: categoryNames.slice(0, 4), // Pega os 4 primeiros como padrão
           time: 90,
         };
         setSelectedCategories(userPreferencesFromMongo.selected);
@@ -43,7 +43,7 @@ function MatchSettingsScreen() {
         
         setMessage('');
       } catch (error) {
-        console.error("Erro ao buscar configurações", error);
+        console.error("Erro ao buscar configurações:", error.message);
         setMessage("Não foi possível carregar as configurações.");
       } finally {
         setLoading(false);
@@ -53,50 +53,36 @@ function MatchSettingsScreen() {
     fetchSettings();
   }, []); // Array vazio [] para rodar apenas uma vez
 
-  // --- FUNÇÕES DE LÓGICA ---
   const handleCategoryChange = (category) => {
     setSelectedCategories((prevSelected) => {
-      // Se a categoria já está selecionada, removemos (desmarcou o checkbox)
       if (prevSelected.includes(category)) {
         return prevSelected.filter((item) => item !== category);
       }
-      // Se não, adicionamos (marcou o checkbox)
       return [...prevSelected, category];
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setMessage("Salvando e iniciando...");
     
-    // Validação simples
     if (selectedCategories.length < 3) {
       setMessage("Selecione pelo menos 3 categorias!");
-      setLoading(false);
       return;
     }
+    
+    // --- PONTO DE INTEGRAÇÃO FUTURO (PUT/POST) ---
+    // Aqui você salvaria as preferências do usuário no banco de dados.
+    // Ex: await supabase.from('jogador_configuracoes').update({ ... })
+    console.log('Configurações salvas (simulação):', {
+      categories: selectedCategories,
+      time: roundTime,
+    });
 
-    try {
-      // --- PONTO DE INTEGRAÇÃO COM A API (PUT) ---
-      // Salva as novas preferências do usuário no banco de dados
-      // URL futura: /api/users/me/settings
-      await axios.put('/api/users/mock-settings', {
-        selected: selectedCategories,
-        time: roundTime,
-      });
-
-      // Se salvou com sucesso, navega para a tela de jogo
-      // O 'state' permite passar informações para a próxima rota (opcional, mas útil)
-      navigate('/', { state: { settings: { categories: selectedCategories, time: roundTime } } });
-
-    } catch (error) {
-      console.error("Erro ao salvar configurações", error);
-      setMessage("Erro ao salvar. Tente novamente.");
-      setLoading(false);
-    }
+    // Navega para a tela de jogo, passando as configurações escolhidas
+    navigate('/', { state: { settings: { categories: selectedCategories, time: roundTime } } });
   };
-
+  
+  // O JSX do formulário continua o mesmo, agora alimentado por dados reais
   if (loading && allCategories.length === 0) {
     return <div className="text-white text-center p-10">{message}</div>;
   }
@@ -140,7 +126,7 @@ function MatchSettingsScreen() {
         {/* Botão de Ação */}
         <div className="mt-10 text-center">
           <button type="submit" disabled={loading} className="rounded-lg bg-green-600 px-10 py-4 text-xl font-bold text-white shadow-lg hover:bg-green-700 disabled:bg-gray-500">
-            {loading ? message : 'Salvar e Iniciar Jogo'}
+            {loading ? 'Carregando...' : 'Iniciar Jogo'}
           </button>
           {message && !loading && <p className="text-red-400 mt-4">{message}</p>}
         </div>
